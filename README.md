@@ -102,7 +102,7 @@ mininet> sh ovs-ofctl -O OpenFlow13 dump-flows s3
 
 ### Port statistics
 ```bash
-mininet> sh ovs-ofctl -O OpenFlow13 dump-ports s1
+mininet> sh ovs-ofctl -O OpenFlow13 show s1
 ```
 ![Port Statistics](screenshots/image7.png)
 
