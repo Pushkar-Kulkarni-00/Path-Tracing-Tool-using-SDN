@@ -15,9 +15,9 @@ DPID_TO_NAME = {
 
 # Add MAC pairs here if you want to block traffic
 # Example:
-# BLOCKED_FLOWS = {
-#     ('3a:a0:37:00:06:8f', '7e:9c:58:0b:6c:5c')
-# }
+BLOCKED_FLOWS = {
+    ('3a:a0:37:00:06:8f', '7e:9c:58:0b:6c:5c')
+}
 BLOCKED_FLOWS = set()
 
 
@@ -109,10 +109,22 @@ class PathTracer(app_manager.RyuApp):
         datapath.send_msg(flow_mod)
 
     def print_flow_stats(self):
-        self.logger.info("===== FLOW STATISTICS =====")
+        self.logger.info(
+            f"\n"
+            f"  ╔══════════════════════════════════════════════╗\n"
+            f"  ║           FLOW STATISTICS SUMMARY           ║\n"
+            f"  ╠══════════════════════════════════════════════╣"
+        )
 
         for flow_id, count in self.flow_stats.items():
-            self.logger.info(f"{flow_id}: {count} packets")
+            src, dst = flow_id.split("->")
+            self.logger.info(
+                f"  ║  {src} → {dst} : {count} packets"
+            )
+
+        self.logger.info(
+            f"  ╚══════════════════════════════════════════════╝"
+        )
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
@@ -141,8 +153,15 @@ class PathTracer(app_manager.RyuApp):
         # Blocked flow scenario
         if (src, dst) in BLOCKED_FLOWS:
             self.logger.warning(
-                f"[BLOCKED] {timestamp} Flow {flow_id} "
-                f"DROPPED at {switch_name}"
+                f"\n"
+                f"  ╔══════════════════════════════════════════════╗\n"
+                f"  ║   FLOW BLOCKED                              ║\n"
+                f"  ╠══════════════════════════════════════════════╣\n"
+                f"  ║  Flow   : {src} → {dst}\n"
+                f"  ║  Switch : {switch_name}\n"
+                f"  ║  Time   : {timestamp}\n"
+                f"  ║  Action : DROP rule installed\n"
+                f"  ╚══════════════════════════════════════════════╝"
             )
 
             match = parser.OFPMatch(
@@ -200,12 +219,26 @@ class PathTracer(app_manager.RyuApp):
             for d in self.packet_paths[flow_id]
         ]
 
+        path_display = " ➜ ".join(
+            f"[{p}]" for p in path_names
+        )
+
+        out_display = (
+            "FLOOD"
+            if out_port == ofproto.OFPP_FLOOD
+            else str(out_port)
+        )
+
         self.logger.info(
-            f"[PATH] {timestamp} Flow {flow_id} | "
-            f"Switch: {switch_name} | "
-            f"Port in: {in_port} -> out: {out_port} | "
-            f"Path so far: {' -> '.join(path_names)} | "
-            f"Packet #: {self.flow_stats[flow_id]}"
+            f"\n"
+            f"  ┌─────────────────────────────────────────────┐\n"
+            f"  │  PACKET TRACED         {timestamp}         │\n"
+            f"  ├─────────────────────────────────────────────┤\n"
+            f"  │  Flow   : {src} → {dst}\n"
+            f"  │  Switch : {switch_name} (in: {in_port}, out: {out_display})\n"
+            f"  │  Path   : {path_display}\n"
+            f"  │  Count  : Packet #{self.flow_stats[flow_id]}\n"
+            f"  └─────────────────────────────────────────────┘"
         )
 
         # Send packet out
